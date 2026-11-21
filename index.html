@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Эталон: «Операционный день» — 3D-тренажёр онбординга</title>
+<style>
+  :root{--bg:#05061C;--accent:#2E7AFF;--soft:#8CB5FF;--ink:#fff;--sec:rgba(233,238,255,.8)}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Manrope,Inter,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);overflow:hidden}
+  #scene{position:fixed;inset:0}
+  .hud{position:fixed;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:center;padding:14px 22px;pointer-events:none}
+  .brand{display:flex;align-items:center;gap:10px}
+  .logo{width:34px;height:22px;border-radius:5px;background:linear-gradient(135deg,#2E7AFF,#00b2ff);position:relative}
+  .logo::after{content:"";position:absolute;right:-6px;top:6px;width:8px;height:10px;background:#00b2ff;transform:skewX(-18deg)}
+  .brand small{color:var(--sec);font-size:12px}
+  .stats{display:flex;gap:18px;font-size:14px}
+  .stats b{color:var(--soft)}
+  .panel{position:fixed;left:22px;bottom:22px;width:340px;background:rgba(12,18,52,.72);border:1px solid rgba(140,181,255,.35);border-radius:14px;padding:16px 18px}
+  .panel h2{font-size:15px;margin-bottom:6px}
+  .panel p{font-size:13px;color:var(--sec);line-height:1.5;margin-bottom:10px}
+  .checks{list-style:none;font-size:13px;margin-bottom:12px}
+  .checks li{padding:4px 0 4px 26px;position:relative;color:var(--sec)}
+  .checks li::before{content:"○";position:absolute;left:4px;color:var(--soft)}
+  .checks li.done{color:#9fe6b8}
+  .checks li.done::before{content:"●";color:#37d67a}
+  .actions{display:flex;gap:8px;flex-wrap:wrap}
+  .actions button{pointer-events:auto;cursor:pointer;border:none;border-radius:9px;padding:10px 14px;font:700 13px inherit;background:rgba(255,255,255,.1);color:var(--ink);border:1px solid rgba(255,255,255,.22)}
+  .actions button.good{background:var(--accent)}
+  .actions button:disabled{opacity:.35;cursor:default}
+  .msg{position:fixed;top:64px;left:50%;transform:translateX(-50%);background:rgba(12,18,52,.85);border:1px solid rgba(140,181,255,.4);border-radius:10px;padding:10px 18px;font-size:14px;opacity:0;transition:opacity .25s;pointer-events:none}
+  .end{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(3,5,20,.82);z-index:5}
+  .end .card{width:420px;background:rgba(12,18,52,.9);border:1px solid rgba(140,181,255,.4);border-radius:16px;padding:28px;text-align:center}
+  .end h1{font-size:22px;margin-bottom:10px}
+  .end p{color:var(--sec);font-size:14px;line-height:1.55;margin-bottom:16px}
+  .end button{cursor:pointer;border:none;border-radius:9px;padding:12px 22px;font:700 14px inherit;background:var(--accent);color:#fff}
+  #gate{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:10}
+  #gate .card{width:320px;background:rgba(12,18,52,.8);border:1px solid rgba(140,181,255,.35);border-radius:14px;padding:24px;text-align:center}
+  #gate input{width:100%;text-align:center;letter-spacing:2px;margin:12px 0;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.18);border-radius:8px;color:#fff;font:400 15px inherit;padding:11px}
+  #gate button{width:100%;cursor:pointer;border:none;border-radius:9px;padding:11px;font:700 14px inherit;background:var(--accent);color:#fff}
+  .err{color:#ff8a9b;font-size:12px;min-height:16px}
+  .takeaways{text-align:left;font-size:13px;color:var(--sec);margin:0 0 16px 18px;line-height:1.6}
+</style>
+</head>
+<body>
+<div id="gate">
+  <div class="card">
+    <div class="brand" style="justify-content:center"><div class="logo"></div></div>
+    <b>Эталонный образец</b>
+    <div style="color:var(--sec);font-size:13px;margin-top:6px">3D-тренажёр «Операционный день».<br>Введите пароль из презентации.</div>
+    <input id="pass" type="password" autocomplete="off">
+    <div class="err" id="err"></div>
+    <button onclick="unlock()">Открыть</button>
+  </div>
+</div>
+
+<canvas id="scene"></canvas>
+
+<div class="hud">
+  <div class="brand"><div class="logo"></div><small>Тренажёр онбординга · операционист кассового узла</small></div>
+  <div class="stats">
+    <span>Время: <b id="t-time">2:30</b></span>
+    <span>Обслужено: <b id="t-served">0</b></span>
+    <span>Ошибки: <b id="t-miss">0</b></span>
+  </div>
+</div>
+
+<div class="panel" id="panel">
+  <h2 id="p-title">Добро пожаловать в операционный зал</h2>
+  <p id="p-text">Роль операциониста: принимать документы без ошибок и держать темп очереди. Вызовите первого клиента.</p>
+  <ul class="checks" id="p-checks" style="display:none">
+    <li data-k="form">Форма документа заполнена полностью</li>
+    <li data-k="rekv">Реквизиты совпадают с образцом</li>
+    <li data-k="sign">Подпись и печать на месте</li>
+    <li data-k="queue">Клиенту объяснён следующий шаг</li>
+  </ul>
+  <div class="actions" id="p-actions" style="display:none">
+    <button class="good" id="a-serve" disabled>Принять документ (Пробел)</button>
+    <button id="a-check1" disabled>1 · Проверка формы</button>
+    <button id="a-check2" disabled>2 · Сверка реквизитов</button>
+    <button id="a-check3" disabled>3 · Подпись и печать</button>
+  </div>
+  <div class="actions" style="margin-top:10px">
+    <button class="good" id="a-call">Вызвать клиента</button>
+  </div>
+</div>
+
+<div class="msg" id="msg"></div>
+
+<div class="end" id="end">
+  <div class="card">
+    <h1 id="e-title">Операционный день завершён</h1>
+    <p id="e-text"></p>
+    <ul class="takeaways" id="e-list"></ul>
+    <button onclick="location.reload()">Пройти ещё раз</button>
+  </div>
+</div>
+
+<script src="three.min.js"></script>
+<script>
+/* ---------- ворота ---------- */
+function unlock(){
+  const v=document.getElementById('pass').value.trim().toLowerCase();
+  if(v==='vtb0112'){try{sessionStorage.setItem('vtb_etalon','1')}catch(e){}
+    document.getElementById('gate').style.display='none';start();}
+  else document.getElementById('err').textContent='Неверный пароль — проверьте слайд.';
+}
+document.getElementById('pass').addEventListener('keydown',e=>{if(e.key==='Enter')unlock()});
+try{if(sessionStorage.getItem('vtb_etalon')==='1'){document.getElementById('gate').style.display='none';}}catch(e){}
+const AUTO = (()=>{try{return sessionStorage.getItem('vtb_etalon')==='1'}catch(e){return false}})();
+
+/* ---------- игровое состояние ---------- */
+const S = {time:150, served:0, miss:0, client:null, checks:{}, state:'idle', auto:AUTO};
+const CHECKS = [
+  {k:'form', label:'форма документа'},
+  {k:'rekv', label:'реквизиты'},
+  {k:'sign', label:'подпись и печать'},
+];
+let scene, camera, renderer, clients=[], tellers=[], activeClient=null, clockStart=0;
+
+function msg(t, ok){ const m=document.getElementById('msg'); m.textContent=t;
+  m.style.borderColor = ok===false ? 'rgba(255,138,155,.6)' : 'rgba(140,181,255,.4)';
+  m.style.opacity=1; clearTimeout(m._t); m._t=setTimeout(()=>m.style.opacity=0,1900); }
+
+/* ---------- сцена ---------- */
+function makeScene(){
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x05061c);
+  scene.fog = new THREE.Fog(0x05061c, 18, 42);
+  camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, .1, 100);
+  camera.position.set(0, 7.5, 12.5);
+  camera.lookAt(0, 1, -2);
+  renderer = new THREE.WebGLRenderer({canvas:document.getElementById('scene'), antialias:true});
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.shadowMap.enabled = true;
+
+  scene.add(new THREE.AmbientLight(0x9db9ff, .75));
+  const key = new THREE.DirectionalLight(0xffffff, 1.2);
+  key.position.set(6, 12, 8); key.castShadow = true;
+  key.shadow.mapSize.set(2048, 2048);
+  key.shadow.camera.left=-14; key.shadow.camera.right=14; key.shadow.camera.top=14; key.shadow.camera.bottom=-14;
+  scene.add(key);
+  const rim = new THREE.PointLight(0x2e7aff, 1.1, 30); rim.position.set(-6, 6, -6); scene.add(rim);
+
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(46, 30),
+    new THREE.MeshStandardMaterial({color:0x121b4d, roughness:.8, metalness:.25}));
+  floor.rotation.x = -Math.PI/2; floor.receiveShadow = true; scene.add(floor);
+  const grid = new THREE.GridHelper(46, 46, 0x2e7aff, 0x101a42);
+  grid.material.opacity = .35; grid.material.transparent = true; grid.position.y = .01; scene.add(grid);
+
+  // стойки касс
+  for (let i = -1; i <= 1; i++) {
+    const g = new THREE.Group();
+    const desk = new THREE.Mesh(new THREE.BoxGeometry(3, 1.05, 1.2),
+      new THREE.MeshStandardMaterial({color:0x131a42, roughness:.5, metalness:.4}));
+    desk.position.y = .55; desk.castShadow = desk.receiveShadow = true; g.add(desk);
+    const glass = new THREE.Mesh(new THREE.BoxGeometry(3, 1.5, .06),
+      new THREE.MeshStandardMaterial({color:0x8cb5ff, transparent:true, opacity:.16, roughness:.1, metalness:.7}));
+    glass.position.set(0, 1.9, -.5); g.add(glass);
+    const screen = new THREE.Mesh(new THREE.BoxGeometry(.9, .55, .05),
+      new THREE.MeshStandardMaterial({color:0x00b2ff, emissive:0x2e7aff, emissiveIntensity:.9}));
+    screen.position.set(-.6, 1.35, 0); screen.rotation.y = .5; g.add(screen);
+    const teller = person(0x2e7aff);
+    teller.position.set(.7, 1.05, -.15); g.add(teller);
+    g.position.set(i*5.2, 0, -4.2);
+    scene.add(g); tellers.push(g);
+  }
+  // лавка и зона ожидания
+  const bench = new THREE.Mesh(new THREE.BoxGeometry(6, .45, 1),
+    new THREE.MeshStandardMaterial({color:0x1a2456, roughness:.7}));
+  bench.position.set(-7.5, .5, 2.5); bench.castShadow = true; scene.add(bench);
+
+  // токен-вывеска
+  const sign = new THREE.Mesh(new THREE.BoxGeometry(4.4, 1.1, .12),
+    new THREE.MeshStandardMaterial({color:0x0c1234, emissive:0x2e7aff, emissiveIntensity:.35}));
+  sign.position.set(0, 4.6, -4.4); scene.add(sign);
+
+  addEventListener('resize', () => {
+    camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+  });
+}
+function person(color){
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry? new THREE.CapsuleGeometry(.32,.9,4,12) : new THREE.CylinderGeometry(.3,.36,1.2,12),
+    new THREE.MeshStandardMaterial({color, roughness:.6}));
+  body.position.y = .95; body.castShadow = true; g.add(body);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(.26, 18, 14),
+    new THREE.MeshStandardMaterial({color:0xdfe6ff, roughness:.5}));
+  head.position.y = 1.85; head.castShadow = true; g.add(head);
+  return g;
+}
+function spawnClient(){
+  const palette = [0x8cb5ff, 0x00b2ff, 0x6f7fd8, 0xb9c3e6];
+  const c = person(palette[Math.floor(Math.random()*palette.length)]);
+  c.position.set(10 + Math.random()*2, 0, 3.2 + Math.random()*1.2);
+  c.userData = {speed: 1.6 + Math.random()*.8, slot: clients.length};
+  scene.add(c); clients.push(c);
+}
+function queueTarget(i){ return {x: 3.2 - i*1.25, z: 3.4}; }
+
+/* ---------- игровая логика ---------- */
+const DOCS = [
+  {name:'Платёжное поручение', note:'юридическое лицо, образец № 0401730'},
+  {name:'Заявление на открытие вклада', note:'физическое лицо, паспорт РФ'},
+  {name:'Заявление на кредит', note:'анкета + справка о доходах'},
+];
+function nextClient(){
+  if (S.state !== 'idle') return;
+  if (!clients.length) { msg('Очередь пуста — подождите клиентов'); return; }
+  activeClient = clients.shift();
+  clients.forEach((c,i)=>c.userData.slot=i);
+  S.state = 'coming';
+}
+function arrive(){
+  S.state = 'serving';
+  S.checks = {};
+  const doc = DOCS[Math.floor(Math.random()*DOCS.length)];
+  S.client = doc;
+  document.getElementById('p-title').textContent = 'Клиент у стойки';
+  document.getElementById('p-text').textContent = 'Документ: '+doc.name+' ('+doc.note+'). Выполните проверки по порядку, затем примите документ.';
+  document.getElementById('p-checks').style.display='block';
+  document.getElementById('p-actions').style.display='flex';
+  document.querySelectorAll('#p-checks li').forEach(li=>li.classList.remove('done'));
+  ['a-check1','a-check2','a-check3'].forEach(id=>document.getElementById(id).disabled=false);
+  document.getElementById('a-serve').disabled = true;
+}
+function doCheck(i){
+  const c = CHECKS[i];
+  if (!c || S.state!=='serving') return;
+  if (S.checks[c.k]) { msg('Эта проверка уже выполнена'); return; }
+  const expect = ['form','rekv','sign'][Object.keys(S.checks).length];
+  if (c.k === expect) {
+    S.checks[c.k]=true;
+    document.querySelector('#p-checks li[data-k="'+c.k+'"]').classList.add('done');
+    msg('Проверено: '+c.label+' ✓');
+    if (Object.keys(S.checks).length === CHECKS.length) document.getElementById('a-serve').disabled=false;
+  } else {
+    S.miss++; document.getElementById('t-miss').textContent=S.miss;
+    msg('Пропущен шаг: сначала — '+CHECKS.find(x=>x.k===expect).label, false);
+  }
+}
+function serve(){
+  if (S.state!=='serving' || document.getElementById('a-serve').disabled) return;
+  S.served++; document.getElementById('t-served').textContent=S.served;
+  msg('Документ принят, клиенту объяснён следующий шаг ✓');
+  document.getElementById('p-checks').style.display='none';
+  document.getElementById('p-actions').style.display='none';
+  document.getElementById('p-title').textContent='Документ принят';
+  document.getElementById('p-text').textContent='Вызовите следующего клиента. Держите темп: очередь не любит пауз.';
+  if (activeClient){ scene.remove(activeClient); activeClient=null; }
+  S.client=null; S.state='idle';
+}
+function finish(){
+  S.state='over';
+  const ok = S.miss===0 && S.served>=5;
+  document.getElementById('e-title').textContent =
+    S.miss===0 ? 'Отличный операционный день' : 'Операционный день завершён';
+  document.getElementById('e-text').textContent =
+    'Обслужено клиентов: '+S.served+'. Ошибок: '+S.miss+'. '+
+    (ok ? 'Темп выдержан, документы приняты без замечаний.' :
+     S.miss>0 ? 'Ошибки — часть обучения: внимательность важнее скорости.' :
+     'Постарайтесь обслужить больше клиентов за смену.');
+  document.getElementById('e-list').innerHTML =
+    '<li>Проверяйте документ по шагам: форма → реквизиты → подпись</li>'+
+    '<li>Не жертвуйте точностью ради скорости — ошибка стоит дороже паузы</li>'+
+    '<li>Объясняйте клиенту следующий шаг — это снижает повторные обращения</li>';
+  document.getElementById('end').style.display='flex';
+}
+
+/* ---------- цикл ---------- */
+let last=0, spawnT=0;
+function tick(t){
+  requestAnimationFrame(tick);
+  const dt = Math.min((t-last)/1000, .05); last=t;
+  if (S.state==='over') { renderer.render(scene,camera); return; }
+  if (document.getElementById('gate').style.display!=='none') return;
+
+  if (S.state!=='over'){
+    S.time -= dt;
+    if (S.time<=0){ S.time=0; finish(); }
+    const m=Math.floor(S.time/60), s=Math.floor(S.time%60);
+    document.getElementById('t-time').textContent = m+':'+String(s).padStart(2,'0');
+  }
+  spawnT += dt;
+  if (spawnT>3.2 && clients.length<6){ spawnT=0; spawnClient(); }
+
+  clients.forEach((c,i)=>{
+    const q=queueTarget(i);
+    c.position.x += (q.x-c.position.x)*Math.min(1,dt*1.4);
+    c.position.z += (q.z-c.position.z)*Math.min(1,dt*1.4);
+  });
+  if (S.state==='coming' && activeClient){
+    activeClient.position.x += (-2.6-activeClient.position.x)*Math.min(1,dt*2);
+    activeClient.position.z += (-2.9-activeClient.position.z)*Math.min(1,dt*2);
+    if (Math.abs(activeClient.position.x+2.6)<.08 && Math.abs(activeClient.position.z+2.9)<.08) arrive();
+  }
+  const tt=t/1000;
+  tellers.forEach((g,i)=>{ g.children[2].rotation.y = .5+Math.sin(tt*2+i)*.12; });
+  if (activeClient) activeClient.rotation.y = Math.sin(tt*3)*.06;
+  renderer.render(scene,camera);
+}
+function start(){
+  makeScene();
+  for(let i=0;i<3;i++) spawnClient();
+  clockStart=performance.now();
+  requestAnimationFrame(t=>{last=t; tick(t);});
+  if (S.auto) msg('Эталонный образец: так может выглядеть результат практического задания');
+}
+document.getElementById('a-call').onclick = nextClient;
+document.getElementById('a-serve').onclick = serve;
+document.getElementById('a-check1').onclick = ()=>doCheck(0);
+document.getElementById('a-check2').onclick = ()=>doCheck(1);
+document.getElementById('a-check3').onclick = ()=>doCheck(2);
+addEventListener('keydown', e=>{
+  if (e.key===' '){ e.preventDefault(); nextClient(); }
+  if (e.key==='1') doCheck(0);
+  if (e.key==='2') doCheck(1);
+  if (e.key==='3') doCheck(2);
+  if (e.key==='Enter') serve();
+});
+if (AUTO) start();
+</script>
+</body>
+</html>
