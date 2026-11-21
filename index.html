@@ -11,8 +11,9 @@
   #scene{position:fixed;inset:0}
   .hud{position:fixed;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:center;padding:14px 22px;pointer-events:none}
   .brand{display:flex;align-items:center;gap:10px}
-  .logo{width:34px;height:22px;border-radius:5px;background:linear-gradient(135deg,#2E7AFF,#00b2ff);position:relative}
-  .logo::after{content:"";position:absolute;right:-6px;top:6px;width:8px;height:10px;background:#00b2ff;transform:skewX(-18deg)}
+  .game-logo{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(145deg,#194aa8,#2e7aff 58%,#00b2ff);position:relative;box-shadow:0 8px 24px rgba(46,122,255,.28),inset 0 0 0 1px rgba(255,255,255,.22)}
+  .game-logo::before{content:"";width:0;height:0;border-top:7px solid transparent;border-bottom:7px solid transparent;border-left:11px solid #fff;margin-left:3px}
+  .game-logo::after{content:"GAME";position:absolute;left:45px;top:4px;color:#8CB5FF;font:800 8px/1 Manrope,Inter,sans-serif;letter-spacing:1.4px}
   .brand small{color:var(--sec);font-size:12px}
   .stats{display:flex;gap:18px;font-size:14px}
   .stats b{color:var(--soft)}
@@ -87,7 +88,7 @@
 <body>
 <div id="gate">
   <div class="card">
-    <div class="brand" style="justify-content:center"><div class="logo"></div></div>
+    <div class="brand" style="justify-content:center"><div class="game-logo" aria-label="Game Lab"></div></div>
     <b>Эталонный образец</b>
     <div style="color:var(--sec);font-size:13px;margin-top:6px">3D-тренажёр «Операционный день».<br>Введите пароль из презентации.</div>
     <input id="pass" type="password" autocomplete="off">
@@ -99,7 +100,7 @@
 <canvas id="scene"></canvas>
 
 <div class="hud">
-  <div class="brand"><div class="logo"></div><small>Тренажёр онбординга · операционист кассового узла</small></div>
+  <div class="brand"><div class="game-logo" aria-label="Game Lab"></div><small>Тренажёр онбординга · операционист кассового узла</small></div>
   <div class="stats">
     <span>Время: <b id="t-time">3:00</b></span>
     <span>Обслужено: <b id="t-served">0</b></span>
@@ -128,7 +129,7 @@
 <div class="doc-stage" id="doc-stage" aria-hidden="true">
   <div class="doc-shell" id="doc-shell">
     <article class="paper" id="paper">
-      <div class="doc-bank"><b>ВТБ · ОПЕРАЦИОННЫЙ ЗАЛ</b><span id="doc-code"></span></div>
+      <div class="doc-bank"><b>GAME LAB · ОПЕРАЦИОННЫЙ ЗАЛ</b><span id="doc-code"></span></div>
       <h1 id="doc-title"></h1>
       <div class="doc-note" id="doc-note"></div>
       <div class="fields" id="doc-fields"></div>
@@ -282,7 +283,7 @@ const DOC_TEMPLATES = [
     {id:'birth',label:'Дата рождения',value:'14.06.1988'},
     {id:'passport',label:'Серия и номер паспорта',value:p.passport},
     {id:'issueDate',label:'Дата выдачи паспорта',value:'08.09.2018',problem:'Не указана дата выдачи паспорта'},
-    {id:'product',label:'Вклад',value:'ВТБ-Вклад · 12 месяцев',wide:true},
+    {id:'product',label:'Вклад',value:'Учебный вклад · 12 месяцев',wide:true},
     {id:'appDate',label:'Дата заявления',value:'21.11.2026',problem:'Не проставлена дата заявления'},
     {id:'signature',label:'Подпись заявителя',value:p.last+' '+p.first[0]+'.',problem:'Нет подписи заявителя'},
    ]},
